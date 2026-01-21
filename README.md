@@ -1,3 +1,4 @@
+```
 prometheus-rules/
 ├── infrastructure/              # The "Hardware" Layer
 │   ├── node.rules.yaml          # CPU, Mem, Load
@@ -15,3 +16,4 @@ prometheus-rules/
     ├── common.rules.yaml        # Rules that apply to ALL apps (e.g., 500 error rate)
     ├── payment-service.yaml     # Specific business logic
     └── auth-service.yaml
+```
