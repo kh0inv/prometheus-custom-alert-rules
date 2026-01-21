@@ -1,0 +1,87 @@
+groups:
+- name: system.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # SYSTEM CLOCK SKEW (NTP)
+  # ----------------------------------------------------------------
+  # Kubernetes (specifically etcd and certificates) requires synchronized clocks.
+  # If time drifts by more than 0.5s, etcd may start failing leader elections.
+  
+  # Threshold: > 0.1s Drift (Warning)
+  - alert: NodeClockSkewHigh
+    expr: abs(node_timex_offset_seconds) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} clock skew detected"
+      description: "Clock is skewed by {{ humanize $value }}s. Check NTP service."
+
+  # Threshold: > 0.5s Drift (Critical)
+  - alert: NodeClockSkewHigh
+    expr: abs(node_timex_offset_seconds) > 0.5
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} clock skew critical (>0.5s)"
+      description: "Clock skew is {{ humanize $value }}s. Etcd/HTTPS failures imminent."
+
+  # ----------------------------------------------------------------
+  # CONNTRACK ENTRIES (Networking)
+  # ----------------------------------------------------------------
+  # Kubernetes uses iptables/conntrack to route Service traffic.
+  # If the conntrack table fills up, the node drops NEW connections (packet loss).
+  # Common cause: High DNS traffic or massive number of short-lived connections.
+
+  # Threshold: > 80% Used (Warning)
+  - alert: NodeConntrackHigh
+    expr: (node_nf_conntrack_entries / node_nf_conntrack_entries_limit) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} conntrack table high (>80%)"
+      description: "Connection tracking table is {{ humanize $value }}% full. Network drops imminent."
+
+  # Threshold: > 95% Used (Critical)
+  - alert: NodeConntrackHigh
+    expr: (node_nf_conntrack_entries / node_nf_conntrack_entries_limit) * 100 > 95
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} conntrack table critical (>95%)"
+      description: "Connection tracking table is full. New connections are being dropped."
+
+  # ----------------------------------------------------------------
+  # FILE DESCRIPTORS (Open Files)
+  # ----------------------------------------------------------------
+  # If a process leaks file handles, the OS will eventually refuse to open new files/sockets.
+  
+  # Threshold: > 80% Used (Warning)
+  - alert: NodeFileDescriptorsHigh
+    expr: (node_filefd_allocated / node_filefd_maximum) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} file descriptors high (>80%)"
+      description: "Node is running out of available file descriptors."
+
+  # Threshold: > 95% Used (Critical)
+  - alert: NodeFileDescriptorsHigh
+    expr: (node_filefd_allocated / node_filefd_maximum) * 100 > 95
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} file descriptors critical (>95%)"
+      description: "Node file descriptors exhausted. Processes will crash."

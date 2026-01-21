@@ -1,0 +1,82 @@
+groups:
+- name: node.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # CPU USAGE
+  # ----------------------------------------------------------------
+  
+  # Threshold: > 85% (Warning)
+  - alert: NodeCpuHigh
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} CPU high (>85%)"
+      description: "CPU usage is at {{ humanize $value }}%. Consider checking for runaway processes."
+
+  # Threshold: > 90% (Critical)
+  # This covers both the 90% and 95% requirements.
+  - alert: NodeCpuHigh
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} CPU critical (>90%)"
+      description: "CPU usage is at {{ humanize $value }}%. System saturation is imminent."
+
+  # ----------------------------------------------------------------
+  # MEMORY USAGE (Available)
+  # ----------------------------------------------------------------
+
+  # Threshold: < 20% Free (Warning)
+  - alert: NodeMemoryLow
+    expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 20
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} memory low (<20%)"
+      description: "Node memory is {{ humanize $value }}% free. Plan for capacity increase."
+
+  # Threshold: < 10% Free (Critical)
+  - alert: NodeMemoryLow
+    expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} memory critical (<10%)"
+      description: "Node memory is {{ humanize $value }}% free. OOM kills are likely."
+
+  # ----------------------------------------------------------------
+  # SYSTEM LOAD
+  # ----------------------------------------------------------------
+
+  # Threshold: > 1.5 per core (Warning)
+  - alert: NodeLoadHigh
+    expr: node_load15 / count without(cpu, mode) (node_cpu_seconds_total{mode="idle"}) >= 1.5
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} load high"
+      description: "System load is {{ humanize $value }} per core. Performance may degrade."
+
+  # Threshold: > 3.0 per core (Critical)
+  - alert: NodeLoadHigh
+    expr: node_load15 / count without(cpu, mode) (node_cpu_seconds_total{mode="idle"}) >= 3.0
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} load critical"
+      description: "System load is {{ humanize $value }} per core. Node may become unresponsive."

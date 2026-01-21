@@ -1,0 +1,56 @@
+groups:
+- name: capacity.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # HORIZONTAL POD AUTOSCALER (HPA)
+  # ----------------------------------------------------------------
+  
+  # HPA Max Replicas Hit (Warning)
+  # If HPA hits its max, it can no longer scale up to meet traffic spikes.
+  # Latency usually follows shortly after.
+  - alert: KubeHpaMaxedOut
+    expr: >
+      kube_horizontalpodautoscaler_status_current_replicas 
+      == 
+      kube_horizontalpodautoscaler_spec_max_replicas
+    for: 15m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "HPA {{ $labels.horizontalpodautoscaler }} is maxed out"
+      description: "HPA has reached its maximum replica count ({{ $value }}). Scaling is capped."
+
+  # ----------------------------------------------------------------
+  # RESOURCE QUOTAS (Namespace Limits)
+  # ----------------------------------------------------------------
+
+  # CPU Quota Near Full (Warning)
+  # Detects if a Namespace is running out of CPU budget.
+  - alert: KubeQuotaCpuNearFull
+    expr: >
+      kube_resourcequota{resource="requests.cpu", type="used"} 
+      / 
+      kube_resourcequota{resource="requests.cpu", type="hard"} * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Namespace {{ $labels.namespace }} CPU quota high (>90%)"
+      description: "Namespace is using {{ humanize $value }}% of its CPU quota. New pods may fail to schedule."
+
+  # Memory Quota Near Full (Warning)
+  - alert: KubeQuotaMemoryNearFull
+    expr: >
+      kube_resourcequota{resource="requests.memory", type="used"} 
+      / 
+      kube_resourcequota{resource="requests.memory", type="hard"} * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Namespace {{ $labels.namespace }} Memory quota high (>90%)"
+      description: "Namespace is using {{ humanize $value }}% of its Memory quota."

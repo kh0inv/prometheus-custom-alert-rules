@@ -1,0 +1,96 @@
+groups:
+- name: ingress.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # ERROR RATES (5xx)
+  # ----------------------------------------------------------------
+  # Measures the percentage of 5xx errors across ALL traffic entering the cluster.
+  # This is the "Global Health" signal.
+  
+  # Threshold: > 1% Errors (Warning)
+  - alert: IngressErrorRateHigh
+    expr: >
+      sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m])) 
+      / 
+      sum(rate(nginx_ingress_controller_requests[5m])) * 100 > 1
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Ingress error rate high (>1%)"
+      description: "Cluster ingress is returning 5xx errors for {{ humanize $value }}% of traffic."
+
+  # Threshold: > 5% Errors (Critical)
+  - alert: IngressErrorRateHigh
+    expr: >
+      sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m])) 
+      / 
+      sum(rate(nginx_ingress_controller_requests[5m])) * 100 > 5
+    for: 2m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Ingress error rate critical (>5%)"
+      description: "Cluster ingress is failing. {{ humanize $value }}% of all requests are 5xx."
+
+  # ----------------------------------------------------------------
+  # LATENCY (P99)
+  # ----------------------------------------------------------------
+  # Tracks how long Nginx takes to process requests.
+  
+  # Threshold: > 1.0s (Warning)
+  - alert: IngressLatencyHigh
+    expr: >
+      histogram_quantile(0.99, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le)) > 1.0
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Ingress P99 latency high (>1s)"
+      description: "99th percentile latency is {{ humanize $value }}s."
+
+  # Threshold: > 3.0s (Critical)
+  - alert: IngressLatencyHigh
+    expr: >
+      histogram_quantile(0.99, sum(rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])) by (le)) > 3.0
+    for: 2m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Ingress P99 latency critical (>3s)"
+      description: "Ingress is severely degraded. P99 latency is {{ humanize $value }}s."
+
+  # ----------------------------------------------------------------
+  # CONTROLLER HEALTH
+  # ----------------------------------------------------------------
+
+  # Config Reload Failed (Critical)
+  # If you apply a bad Ingress YAML, Nginx will fail to reload the configuration.
+  # New routes will NOT take effect until this is fixed.
+  - alert: IngressConfigReloadFailed
+    expr: nginx_ingress_controller_config_last_reload_successful == 0
+    for: 2m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Ingress config reload failed"
+      description: "Nginx Ingress Controller failed to reload configuration. Check logs for bad Ingress YAML syntax."
+
+  # SSL Certificate Expiry (Warning)
+  # Detects if a TLS certificate managed by the Ingress Controller is expiring soon.
+  # Threshold: < 14 days
+  - alert: IngressCertificateExpiring
+    expr: (nginx_ingress_controller_ssl_expire_time_seconds - time()) / 86400 < 14
+    for: 1h
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Ingress certificate expiring in < 14 days"
+      description: "Certificate for {{ $labels.host }} expires in {{ humanize $value }} days."

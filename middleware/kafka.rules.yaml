@@ -1,0 +1,78 @@
+groups:
+- name: kafka.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # CONSUMER LAG (The #1 Metric)
+  # ----------------------------------------------------------------
+  # Lag = (Last Produced Offset) - (Last Consumed Offset).
+  # If this grows, your real-time data is becoming "old-time" data.
+
+  # Consumer Lag High (Warning)
+  # Threshold depends on your traffic, but > 10,000 messages usually implies a slowdown.
+  - alert: KafkaConsumerLagHigh
+    expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 10000
+    for: 5m
+    labels:
+      severity: warning
+      category: platform-services
+    annotations:
+      summary: "Kafka group {{ $labels.consumergroup }} lag high (>10k)"
+      description: "Consumer group is {{ $value }} messages behind on topic {{ $labels.topic }}."
+
+  # Consumer Lag Critical (Critical)
+  # If lag keeps growing, the consumers might be stuck or crashed.
+  - alert: KafkaConsumerLagHigh
+    expr: sum by (consumergroup, topic) (kafka_consumergroup_lag) > 50000
+    for: 5m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Kafka group {{ $labels.consumergroup }} lag critical (>50k)"
+      description: "Critical lag. Consumers are severely behind or stuck."
+
+  # ----------------------------------------------------------------
+  # CLUSTER HEALTH (Brokers)
+  # ----------------------------------------------------------------
+
+  # Under Replicated Partitions (Critical)
+  # The "Canary in the Coal Mine" for Kafka.
+  # Means a broker is down or the network is too slow to replicate data.
+  # If this is > 0, you do NOT have full redundancy.
+  - alert: KafkaUnderReplicatedPartitions
+    expr: kafka_server_ReplicaManager_UnderReplicatedPartitions > 0
+    for: 2m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Kafka cluster has under-replicated partitions"
+      description: "{{ $value }} partitions are under-replicated. Data redundancy is compromised."
+
+  # Active Controller Count (Critical)
+  # There must be EXACTLY 1 controller in the cluster.
+  # 0 = Cluster is headless (can't create topics, elect leaders).
+  # >1 = Split brain (catastrophic).
+  - alert: KafkaActiveControllerCount
+    expr: sum(kafka_controller_KafkaController_ActiveControllerCount) != 1
+    for: 1m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Kafka active controller count is {{ $value }}"
+      description: "Cluster must have exactly 1 active controller. Current count: {{ $value }}."
+
+  # Offline Partitions (Emergency)
+  # This is the worst-case scenario. The leader for a partition is dead, 
+  # and NO replicas are available to take over. Data is inaccessible/lost.
+  - alert: KafkaOfflinePartitions
+    expr: kafka_controller_KafkaController_OfflinePartitionsCount > 0
+    for: 1m
+    labels:
+      severity: emergency
+      category: platform-services
+    annotations:
+      summary: "Kafka has {{ $value }} offline partitions"
+      description: "Partitions are offline. Read/Write operations are failing for some topics."

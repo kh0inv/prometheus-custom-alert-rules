@@ -1,0 +1,46 @@
+groups:
+- name: k8s-system.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # API SERVER (The Brain)
+  # ----------------------------------------------------------------
+  
+  # 1. API Server Latency High (Warning)
+  # Check P99 latency for mutating requests (POST/PUT/PATCH).
+  - alert: KubeApiLatencyHigh
+    expr: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile{quantile="0.99", verb=~"POST|PUT|PATCH"} > 1.0
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "API Server latency high (>1s)"
+      description: "99th percentile latency for {{ $labels.verb }} requests is {{ humanize $value }}s."
+
+  # 2. API Server Error Rate (Critical)
+  # High rate of 5xx errors.
+  - alert: KubeApiErrorsHigh
+    expr: rate(apiserver_request_total{code=~"5.."}[5m]) / rate(apiserver_request_total[5m]) * 100 > 3
+    for: 5m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "API Server error rate critical (>3%)"
+
+  # ----------------------------------------------------------------
+  # ETCD (The Database)
+  # ----------------------------------------------------------------
+  
+  # 3. Etcd No Leader (Emergency)
+  # If Etcd has no leader, the cluster is read-only or down.
+  - alert: KubeEtcdNoLeader
+    expr: etcd_server_has_leader == 0
+    for: 1m
+    labels:
+      severity: emergency
+      category: platform
+    annotations:
+      summary: "Etcd cluster has no leader"
+      description: "Etcd cluster is down. API Server will stop accepting writes."

@@ -1,0 +1,48 @@
+groups:
+- name: batch.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # JOB FAILURES
+  # ----------------------------------------------------------------
+
+  # Job Failed (Critical)
+  # A Job reached its backoff limit and officially failed.
+  - alert: KubeJobFailed
+    expr: kube_job_status_failed > 0
+    for: 5m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Job {{ $labels.job_name }} failed"
+      description: "Job failed to complete successfully."
+
+  # ----------------------------------------------------------------
+  # CRONJOBS
+  # ----------------------------------------------------------------
+  
+  # CronJob Suspended (Warning)
+  # Sometimes engineers suspend a CronJob to debug and forget to un-suspend it.
+  - alert: KubeCronJobSuspended
+    expr: kube_cronjob_spec_suspend != 0
+    for: 2h
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "CronJob {{ $labels.cronjob }} is suspended"
+      description: "CronJob has been suspended for > 2 hours."
+
+  # Long Running Job (Warning)
+  # A "Zombie" job that started but never finished (stuck in loop or deadlock).
+  # Adjust the threshold (3600s = 1h) based on your longest expected job.
+  - alert: KubeJobLongRunning
+    expr: time() - kube_job_status_start_time > 3600
+    for: 5m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Job {{ $labels.job_name }} running too long (>1h)"
+      description: "Job has been running for {{ humanize $value }}s. Check for deadlocks."

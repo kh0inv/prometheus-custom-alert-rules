@@ -1,0 +1,72 @@
+groups:
+- name: k8s-resources.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # NODE & KUBELET STATE
+  # ----------------------------------------------------------------
+
+  # 1. Node Not Ready (Critical)
+  # The node is technically online, but K8s can't schedule pods on it.
+  - alert: KubeNodeNotReady
+    expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+    for: 10m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Node {{ $labels.node }} is NotReady"
+      description: "Node has been in NotReady state for over 10 minutes."
+
+  # 2. Kubelet Down (Critical)
+  # Prometheus cannot scrape the Kubelet.
+  - alert: KubeletDown
+    expr: up{job="kubelet"} == 0
+    for: 5m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "Kubelet on {{ $labels.instance }} is down"
+
+  # ----------------------------------------------------------------
+  # PODS & WORKLOADS
+  # ----------------------------------------------------------------
+
+  # 3. Pod CrashLoopBackOff (Warning)
+  # A pod is starting, crashing, and restarting repeatedly.
+  - alert: KubePodCrashLoop
+    expr: kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} > 0
+    for: 15m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Pod {{ $labels.pod }} is CrashLooping"
+      description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently."
+
+  # 4. Deployment Generation Mismatch (Warning)
+  # The deployment failed to roll out the new version completely.
+  - alert: KubeDeploymentRolloutStuck
+    expr: kube_deployment_status_replicas_updated != kube_deployment_status_replicas_expected
+    for: 15m
+    labels:
+      severity: warning
+      category: platform
+    annotations:
+      summary: "Deployment {{ $labels.deployment }} rollout stuck"
+
+  # ----------------------------------------------------------------
+  # STORAGE (PVCs)
+  # ----------------------------------------------------------------
+
+  # 5. Persistent Volume Lost (Critical)
+  - alert: KubePvcLost
+    expr: kube_persistentvolumeclaim_status_phase{phase="Lost"} > 0
+    for: 1m
+    labels:
+      severity: critical
+      category: platform
+    annotations:
+      summary: "PVC {{ $labels.persistentvolumeclaim }} is Lost"
+      description: "Storage volume has been lost. Data may be at risk."

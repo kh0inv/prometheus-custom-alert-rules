@@ -1,0 +1,132 @@
+groups:
+- name: filesystem.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # DISK SPACE (Capacity)
+  # ----------------------------------------------------------------
+  
+  # Filter explanation:
+  # 1. fstype!=""       : Ignore weird empty types
+  # 2. !~"tmpfs..."     : Ignore memory filesystems and docker overlay mounts
+  # 3. mountpoint!~...  : Ignore /boot (often small/full) and specific k8s mounts
+  
+  # Threshold: < 15% Free (Warning)
+  - alert: NodeDiskSpaceLow
+    expr: >
+      (node_filesystem_avail_bytes{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_size_bytes) * 100 < 15
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} filesystem {{ $labels.mountpoint }} low (<15%)"
+      description: "Filesystem has {{ humanize $value }}% free space left."
+
+  # Threshold: < 10% Free (Critical)
+  - alert: NodeDiskSpaceLow
+    expr: >
+      (node_filesystem_avail_bytes{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_size_bytes) * 100 < 10
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} filesystem {{ $labels.mountpoint }} critical (<10%)"
+      description: "Filesystem has only {{ humanize $value }}% free space left. Immediate cleanup required."
+
+  # ----------------------------------------------------------------
+  # INODES (File Count)
+  # ----------------------------------------------------------------
+  # If inodes run out, you cannot create new files even if disk space is free.
+  # This often happens with applications that generate millions of small files (e.g., PHP sessions, Docker images).
+
+  # Threshold: < 10% Free Inodes (Warning)
+  - alert: NodeDiskInodesLow
+    expr: >
+      (node_filesystem_files_free{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_files) * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} inodes {{ $labels.mountpoint }} low (<10%)"
+      description: "Filesystem is running out of inodes ({{ humanize $value }}% free)."
+
+  # Threshold: < 5% Free Inodes (Critical)
+  - alert: NodeDiskInodesLow
+    expr: >
+      (node_filesystem_files_free{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_files) * 100 < 5
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} inodes {{ $labels.mountpoint }} critical (<5%)"
+      description: "Filesystem inodes critically low ({{ humanize $value }}% free). New files cannot be created."
+      groups:
+- name: filesystem.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # DISK SPACE (Capacity)
+  # ----------------------------------------------------------------
+  
+  # Filter explanation:
+  # 1. fstype!=""       : Ignore weird empty types
+  # 2. !~"tmpfs..."     : Ignore memory filesystems and docker overlay mounts
+  # 3. mountpoint!~...  : Ignore /boot (often small/full) and specific k8s mounts
+  
+  # Threshold: < 15% Free (Warning)
+  - alert: NodeDiskSpaceLow
+    expr: >
+      (node_filesystem_avail_bytes{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_size_bytes) * 100 < 15
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} filesystem {{ $labels.mountpoint }} low (<15%)"
+      description: "Filesystem has {{ humanize $value }}% free space left."
+
+  # Threshold: < 10% Free (Critical)
+  - alert: NodeDiskSpaceLow
+    expr: >
+      (node_filesystem_avail_bytes{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_size_bytes) * 100 < 10
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} filesystem {{ $labels.mountpoint }} critical (<10%)"
+      description: "Filesystem has only {{ humanize $value }}% free space left. Immediate cleanup required."
+
+  # ----------------------------------------------------------------
+  # INODES (File Count)
+  # ----------------------------------------------------------------
+  # If inodes run out, you cannot create new files even if disk space is free.
+  # This often happens with applications that generate millions of small files (e.g., PHP sessions, Docker images).
+
+  # Threshold: < 10% Free Inodes (Warning)
+  - alert: NodeDiskInodesLow
+    expr: >
+      (node_filesystem_files_free{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_files) * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} inodes {{ $labels.mountpoint }} low (<10%)"
+      description: "Filesystem is running out of inodes ({{ humanize $value }}% free)."
+
+  # Threshold: < 5% Free Inodes (Critical)
+  - alert: NodeDiskInodesLow
+    expr: >
+      (node_filesystem_files_free{fstype!="",fstype!~"tmpfs|fuse.*|nfs",mountpoint!~"/boot|/var/lib/docker/.*"} / node_filesystem_files) * 100 < 5
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} inodes {{ $labels.mountpoint }} critical (<5%)"
+      description: "Filesystem inodes critically low ({{ humanize $value }}% free). New files cannot be created."

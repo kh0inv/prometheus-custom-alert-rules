@@ -1,0 +1,66 @@
+groups:
+- name: network.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # PACKET DROPS
+  # ----------------------------------------------------------------
+  # Dropped packets usually indicate the kernel ring buffer is full 
+  # or the network device is overwhelmed.
+  
+  # Threshold: > 0 drops per second
+  # We filter out 'veth' (docker virtual interfaces) and 'lo' (loopback) 
+  # because they are noisy and usually handled by K8s directly.
+  - alert: NodeNetworkDropHigh
+    expr: >
+      rate(node_network_receive_drop_total{device!~"veth.*|lo|docker.*"}[5m]) > 0
+      or
+      rate(node_network_transmit_drop_total{device!~"veth.*|lo|docker.*"}[5m]) > 0
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} network drops high"
+      description: "Interface {{ $labels.device }} is dropping packets. Check buffer settings or physical cabling."
+
+  # ----------------------------------------------------------------
+  # NETWORK ERRORS
+  # ----------------------------------------------------------------
+  # Errors are worse than drops; they usually indicate physical layer 
+  # issues (bad cable, bad switch port, duplex mismatch).
+
+  # Threshold: > 0 errors
+  - alert: NodeNetworkErrorCritical
+    expr: >
+      rate(node_network_receive_errs_total{device!~"veth.*|lo|docker.*"}[5m]) > 0
+      or
+      rate(node_network_transmit_errs_total{device!~"veth.*|lo|docker.*"}[5m]) > 0
+    for: 2m
+    labels:
+      severity: critical
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} network errors detected"
+      description: "Interface {{ $labels.device }} is reporting physical errors. Hardware investigation required."
+
+  # ----------------------------------------------------------------
+  # BANDWIDTH USAGE (Throughput)
+  # ----------------------------------------------------------------
+  # Since node_exporter doesn't know if you have 1G or 10G cards, 
+  # you must replace the threshold value below with your meaningful limit.
+  # 125 MB/s = 1 Gbit/s roughly.
+  
+  # Example Threshold: > 100 MB/s
+  - alert: NodeNetworkTrafficHigh
+    expr: >
+      rate(node_network_receive_bytes_total{device!~"veth.*|lo|docker.*"}[5m]) > 100 * 1024 * 1024
+      or
+      rate(node_network_transmit_bytes_total{device!~"veth.*|lo|docker.*"}[5m]) > 100 * 1024 * 1024
+    for: 5m
+    labels:
+      severity: warning
+      category: infra
+    annotations:
+      summary: "Node {{ $labels.instance }} high network traffic (>100MB/s)"
+      description: "Interface {{ $labels.device }} is utilizing high bandwidth."

@@ -1,0 +1,107 @@
+groups:
+- name: redis.rules
+  rules:
+
+  # ----------------------------------------------------------------
+  # AVAILABILITY
+  # ----------------------------------------------------------------
+  
+  # Redis Down (Critical)
+  - alert: RedisDown
+    expr: up{job=~".*redis.*"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Redis instance {{ $labels.instance }} is down"
+      description: "Redis exporter cannot connect to the instance."
+
+  # ----------------------------------------------------------------
+  # MEMORY (The #1 Killer of Redis)
+  # ----------------------------------------------------------------
+  
+  # Memory Usage High (Warning)
+  # Checks used memory against the configured 'maxmemory' limit in redis.conf.
+  # *Note: If maxmemory is 0 (unlimited), this rule might return Infinity. 
+  # Ensure your Redis config has a maxmemory limit set (best practice in K8s).
+  - alert: RedisMemoryHigh
+    expr: >
+      redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      category: platform-services
+    annotations:
+      summary: "Redis {{ $labels.instance }} memory high (>80%)"
+      description: "Redis is using {{ humanize $value }}% of its configured maxmemory."
+
+  # Memory Usage Critical (Critical)
+  # At 90%, Redis may start aggressively evicting keys or blocking writes.
+  - alert: RedisMemoryHigh
+    expr: >
+      redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+    for: 2m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Redis {{ $labels.instance }} memory critical (>90%)"
+      description: "Redis is near capacity. Eviction or OOM kill imminent."
+
+  # Fragmentation Ratio High (Warning)
+  # If > 1.5, the OS is using 1.5GB for every 1GB of data Redis thinks it has.
+  # A restart is usually required to defrag.
+  - alert: RedisFragmentationHigh
+    expr: redis_mem_fragmentation_ratio > 1.5
+    for: 15m
+    labels:
+      severity: warning
+      category: platform-services
+    annotations:
+      summary: "Redis {{ $labels.instance }} fragmentation high (>1.5)"
+      description: "Memory fragmentation is {{ $value | printf '%.2f' }}. Consider restarting."
+
+  # ----------------------------------------------------------------
+  # CONNECTIONS
+  # ----------------------------------------------------------------
+
+  # Too Many Connections (Warning)
+  # If clients don't close connections, Redis hits the 'maxclients' limit and rejects everyone.
+  - alert: RedisConnectionsHigh
+    expr: redis_connected_clients / redis_config_maxclients * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      category: platform-services
+    annotations:
+      summary: "Redis {{ $labels.instance }} connections high (>80%)"
+      description: "Redis client connections are reaching the limit."
+
+  # Rejected Connections (Critical)
+  # This means the limit was hit and apps are failing to connect.
+  - alert: RedisConnectionsRejected
+    expr: rate(redis_rejected_connections_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Redis {{ $labels.instance }} is rejecting connections"
+      description: "Max connection limit reached. New clients are being dropped."
+
+  # ----------------------------------------------------------------
+  # REPLICATION (If using Cluster/Sentinel)
+  # ----------------------------------------------------------------
+
+  # Master Link Down (Critical)
+  # Alerts if a Replica loses connection to its Master.
+  - alert: RedisReplicationBroken
+    expr: redis_master_link_up == 0
+    for: 1m
+    labels:
+      severity: critical
+      category: platform-services
+    annotations:
+      summary: "Redis replica {{ $labels.instance }} lost master"
+      description: "Replica cannot sync with master. Data consistency at risk."
